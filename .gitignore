@@ -1,0 +1,7 @@
+# Ignore following files:
+dxrfd.log* 
+dxrfd
+passwd.h
+XRF_STATUS.txt
+xrf_lh
+GitVersion.h

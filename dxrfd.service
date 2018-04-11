@@ -1,0 +1,12 @@
+[Unit]
+Description=dxrfd Service
+After=syslog.target network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/sbin/xrfd.service start
+ExecStop=/usr/local/sbin/xrfd.service stop
+ExecReload=/usr/local/sbin/xrfd.service restart
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,34 @@
+# Sync hardware clock
+
+15 0 * * * /sbin/hwclock --systohc
+#
+# update gwys.txt for g2_link
+#5 6 * * * /root/my_scripts/get_gwy_list.sh > /var/log/get_gwy_list.log 2>&1
+
+# Update gwys.txt file for callserver
+# 0 5 * * * /root/callserver/gwupd.sh
+
+# restart callsever
+2 5 * * * /sbin/service callserver restart 
+
+# link xrf reflector to xrf123
+# 0 * * * * /root/dxrfd/linkxrf123.sh > /dev/null 2>&1
+
+# link xrf reflector to xrf587
+# 0 * * * * /root/dxrfd/linkxrf587.sh > /dev/null 2>&1
+
+# link xrf reflector to xrf813
+# 0 * * * * /root/dxrfd/linkxrf813.sh > /dev/null 2>&1
+
+# link xrf reflector to xrf707
+# 0 * * * * /root/dxrfd/linkxrf707.sh > /dev/null 2>&1
+
+# link xrf reflector to xrf727
+# 0 * * * * /root/dxrfd/linkxrf727.sh > /dev/null 2>&1
+
+# get new astdb database file for allmon
+01 03 * * * cd /var/www/html/allmon; ./astdb.php
+
+
+
+ 

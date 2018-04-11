@@ -1,0 +1,5 @@
+#!/bin/bash
+rm -f GitVersion.h
+echo "const char *gitversion = \"$(git rev-parse HEAD)\";" > GitVersion.h
+g++ -W -Wall -g -o dxrfd dxrfd.cpp -ldb -lrt -pthread
+

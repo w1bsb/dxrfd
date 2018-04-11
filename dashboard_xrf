@@ -1,0 +1,12 @@
+#!/bin/bash
+
+cd /opt/dxrfd
+
+# line below create's dashboard for XRF Reflector
+./xrf_lh 1NFO XRF901 "XRF901" 127.0.0.1 > status.html
+
+/bin/mv status.html /var/www/html/.
+/bin/cp /var/www/html/status.html /var/www/html/index.html
+
+exit 0
+
