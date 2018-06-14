@@ -1,6 +1,8 @@
 # Ignore following files:
 dxrfd.log* 
 dxrfd
+dxrfd.cfg
+xrfs.txt
 passwd.h
 XRF_STATUS.txt
 xrf_lh
