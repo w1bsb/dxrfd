@@ -271,9 +271,6 @@ static struct sockaddr_in fromCmd;
 static unsigned char refbuf[READBUFFER_SIZE];
 static struct sockaddr_in fromInbound;
 
-/* log file for tracing data */
-static FILE *logfp = NULL;
-
 /* status file */
 static FILE *statusfp = NULL;
 
@@ -317,7 +314,6 @@ static void print_links_screen();
 static bool get_ip(char *call, char *ip);
 static void handle_cmd(char *buf);
 static void runit();
-static void traceit(const char *fmt,...);
 static int  read_config(char *);
 static int  srv_open();
 static int  cmd_open();
@@ -348,7 +344,7 @@ static bool resolve_rmt(char *name, int type, struct sockaddr_in *addr)
    rc = getaddrinfo(name, NULL, &hints, &res);
    if (rc != 0)
    {
-      traceit("getaddrinfo return error code %d for [%s]\n", rc, name);
+      printf("getaddrinfo return error code %d for [%s]\n", rc, name);
       return false;
    }
 
@@ -381,7 +377,7 @@ static int link_to_xrf(char local_mod, char *ref, char remote_mod, char *IP)
       if (user_pos != a_user_list.end())
       {
          /* It already exists */
-         traceit("Remote reflector [%s] ip=%s already linked, unlink first\n", ref, IP); 
+         printf("Remote reflector [%s] ip=%s already linked, unlink first\n", ref, IP); 
          return 0;
       }
    }
@@ -397,7 +393,7 @@ static int link_to_xrf(char local_mod, char *ref, char remote_mod, char *IP)
    sin.sin_port = htons(LISTEN_PORT);
    sin.sin_addr.s_addr = inet_addr(IP);
 
-   traceit("Sending request [%s] to reflector %s\n", request, ref);
+   printf("Sending request [%s] to reflector %s\n", request, ref);
 
    for (counter = 0; counter < 5; counter++)
       sendto(srv_sock, request, CALL_SIZE + 3,
@@ -430,7 +426,7 @@ static int link_to_ref(char *call)
    if ((local_mod != 'A') && (local_mod != 'B') && 
        (local_mod != 'C') && (local_mod != 'D')) 
    {
-      traceit("Invalid local module %c for linking\n", local_mod);
+      printf("Invalid local module %c for linking\n", local_mod);
       return -1;
    }
 
@@ -444,13 +440,13 @@ static int link_to_ref(char *call)
 
    if ((memcmp(ref, "REF", 3) != 0) && (memcmp(ref, "XRF", 3) != 0))
    {
-      traceit("XRF or REF only\n");
+      printf("XRF or REF only\n");
       return -1;
    }
 
    if (strcmp(ref, OWNER) == 0)
    {
-      traceit("Can not link to itself\n");
+      printf("Can not link to itself\n");
       return -1;
    }
 
@@ -458,7 +454,7 @@ static int link_to_ref(char *call)
    if ((remote_mod != 'A') && (remote_mod != 'B') && (remote_mod != 'C') && 
        (remote_mod != 'D') && (remote_mod != 'X'))
    {
-      traceit("Invalid remote module %c\n", remote_mod);
+      printf("Invalid remote module %c\n", remote_mod);
       return -1;
    }
 
@@ -470,13 +466,13 @@ static int link_to_ref(char *call)
    /* No IP in db? */
    if (payload[0] == '\0')
    {
-      traceit("No host or IP address for %s\n", ref);
+      printf("No host or IP address for %s\n", ref);
       return -1;
    }
 
    if (strcmp(payload, "0.0.0.0") == 0)
    {
-      traceit("Invalid IP in db\n");
+      printf("Invalid IP in db\n");
       return -1;
    }
 
@@ -494,7 +490,7 @@ static int link_to_ref(char *call)
       inbound_ptr = (inbound *)inbound_pos->second;
       if (!inbound_ptr->is_ref)
       {
-         traceit("This connection is not a reflector\n");
+         printf("This connection is not a reflector\n");
          return -1;
       }
 
@@ -508,7 +504,7 @@ static int link_to_ref(char *call)
           (inbound_ptr->links[3] == remote_mod) ||
           (inbound_ptr->links[4] == remote_mod))
       {
-         traceit ("Already set or duplicate assignment\n");
+         printf ("Already set or duplicate assignment\n");
          return 0;
       }
 
@@ -535,7 +531,7 @@ static int link_to_ref(char *call)
       {
          /* all links removed, disconnect from remote system */
 
-         traceit("All links removed, disconnecting from %s\n", inbound_ptr->call);
+         printf("All links removed, disconnecting from %s\n", inbound_ptr->call);
          refbuf[0] = 5;
          refbuf[1] = 0;
          refbuf[2] = 24;
@@ -555,13 +551,13 @@ static int link_to_ref(char *call)
 
    if (remote_mod == 'X')
    {
-      traceit("X can not be used, there is no connection to unlink\n");
+      printf("X can not be used, there is no connection to unlink\n");
       return -1;
    }
 
    if ((inbound_list.size() + 1) > MAX_OTHER_USERS)
    {
-      traceit("Over the MAX_OTHER_USERS limit of %d\n", MAX_OTHER_USERS);
+      printf("Over the MAX_OTHER_USERS limit of %d\n", MAX_OTHER_USERS);
       return -1;
    }
 
@@ -600,7 +596,7 @@ static int link_to_ref(char *call)
       inbound_insert_pair = inbound_list.insert(pair<string, inbound *>(search_value, inbound_ptr));
       if (inbound_insert_pair.second)
       {
-         traceit("new CALL=%s,REPEATER,ip=%s, users=%d\n",
+         printf("new CALL=%s,REPEATER,ip=%s, users=%ld\n",
                   inbound_ptr->call,search_value,inbound_list.size() + a_user_list.size());
 
          /* request to connect */
@@ -618,7 +614,7 @@ static int link_to_ref(char *call)
       }
       else
       {
-         traceit("failed to add CALL=%s,ip=%s\n",inbound_ptr->call,search_value);
+         printf("failed to add CALL=%s,ip=%s\n",inbound_ptr->call,search_value);
          free(inbound_ptr);
          inbound_ptr = NULL;
          return -1;
@@ -626,7 +622,7 @@ static int link_to_ref(char *call)
    }
    else
    {
-      traceit("malloc() failed for call=%s,ip=%s\n",ref,search_value);
+      printf("malloc() failed for call=%s,ip=%s\n",ref,search_value);
       return -1;
    }
    return 0;
@@ -674,7 +670,7 @@ static void send_heartbeat()
    {
       inbound_ptr = (inbound *)temp_pos->second;
 
-      traceit("call=%s %s, removing %s\n", 
+      printf("call=%s %s, removing %s\n", 
                 inbound_ptr->call, 
                 (dropped == 't')?"timeout":"blocked",
                 temp_pos->first.c_str());
@@ -715,13 +711,13 @@ static int open_blocks(char *filename)
    fp = fopen(filename, "r");
    if (!fp)
    {
-      traceit("Failed to open file %s\n", filename);
+      printf("Failed to open file %s\n", filename);
       return 1;
    }
 
    blocks.clear();
 
-   traceit("Reading from file: [%s]\n", filename);
+   printf("Reading from file: [%s]\n", filename);
    while (fgets(inbuf, 511, fp) != NULL)
    {
       inbuf[511] = '\0';
@@ -752,10 +748,10 @@ static int open_blocks(char *filename)
    }
    fclose(fp);
 
-   traceit("BEGIN listing blocked callsigns...%d calls blocked\n", blocks.size());
+   printf("BEGIN listing blocked callsigns...%ld calls blocked\n", blocks.size());
    for (pos = blocks.begin(); pos != blocks.end(); pos++)
-      traceit("--->[%s]\n", pos->c_str());
-   traceit("END listing blocked callsigns\n");
+      printf("--->[%s]\n", pos->c_str());
+   printf("END listing blocked callsigns\n");
 
    return 0;
 }
@@ -775,13 +771,13 @@ static int open_users(char *filename)
    fp = fopen(filename, "r");
    if (!fp)
    {
-      traceit("Failed to open file %s\n", filename);
+      printf("Failed to open file %s\n", filename);
       return 1;
    }
 
    call_ip_map.clear();
 
-   traceit("Reading from file: [%s]\n", filename);
+   printf("Reading from file: [%s]\n", filename);
    while (fgets(inbuf, 511, fp) != NULL)
    {
       inbuf[511] = '\0';
@@ -808,34 +804,10 @@ static int open_users(char *filename)
    fclose(fp);
 
    for (pos = call_ip_map.begin(); pos != call_ip_map.end(); pos++)
-      traceit("[%s],[%s]\n", pos->first.c_str(), pos->second.c_str());
-   traceit("Loaded %d entries\n", call_ip_map.size());
+      printf("[%s],[%s]\n", pos->first.c_str(), pos->second.c_str());
+   printf("Loaded %ld entries\n", call_ip_map.size());
 
    return 0;
-}
-
-/* trace data to the log */
-static void traceit(const char *fmt,...)
-{
-   time_t ltime;
-   struct tm tm;
-   const short BFSZ = 512;
-   char buf[BFSZ];
-
-   time(&ltime);
-   localtime_r(&ltime,&tm);
-
-   snprintf(buf,BFSZ - 1,"%02d%02d%02d at %02d:%02d:%02d:",
-            tm.tm_mon+1,tm.tm_mday,tm.tm_year % 100,
-            tm.tm_hour,tm.tm_min,tm.tm_sec);
-
-   va_list args;
-   va_start(args,fmt);
-   vsnprintf(buf + strlen(buf), BFSZ - strlen(buf) -1, fmt, args);
-   va_end(args);
-
-   fprintf(logfp, "%s",buf);
-   return;
 }
 
 /* Search for that host */
@@ -849,14 +821,14 @@ static bool get_ip(char *call, char *ip)
    pos = call_ip_map.find(call);
    if (pos == call_ip_map.end())
    {
-      traceit("Callsign [%s] not found in database\n", call);
+      printf("Callsign [%s] not found in database\n", call);
       return false;  // not found
    }
 
    ok = resolve_rmt((char *)pos->second.c_str(), SOCK_DGRAM, &(a_net_addr));
    if (!ok)
    {
-      traceit("Failed to resolve [%s] for callsign [%s]\n", 
+      printf("Failed to resolve [%s] for callsign [%s]\n", 
                pos->second.c_str(), call); 
       return false;
    }
@@ -883,15 +855,15 @@ static int read_config(char *cfgFile)
    cnf = fopen(cfgFile, "r");
    if (!cnf)
    {
-      traceit("Failed to open file %s\n", cfgFile);
+      printf("Failed to open file %s\n", cfgFile);
       return 1;
    }
-   traceit("Starting dxrfd v3.08a-w1bsb (GitID #%.7s)\n", gitversion);
-   traceit("dxrfd comes with ABSOLUTELY NO WARRANTY; see the LICENSE for details.\n");
-   traceit("This is free software, and you are welcome to distribute it\n");
-   traceit("under certain conditions that are discussed in the LICENSE file.\n");
+   printf("Starting dxrfd v3.08a-w1bsb (GitID #%.7s)\n", gitversion);
+   printf("dxrfd comes with ABSOLUTELY NO WARRANTY; see the LICENSE for details.\n");
+   printf("This is free software, and you are welcome to distribute it\n");
+   printf("under certain conditions that are discussed in the LICENSE file.\n");
  
-   traceit("Reading file %s\n", cfgFile);
+   printf("Reading file %s\n", cfgFile);
    while (fgets(inbuf, 1020, cnf) != NULL)
    {
       if (strchr(inbuf, '#'))
@@ -919,7 +891,7 @@ static int read_config(char *cfgFile)
              *ptr = '\0';
           
           if (strlen(p + 1) != OWNER_SIZE - 2)
-             traceit("OWNER value %s invalid, length must be exactly %d\n", 
+             printf("OWNER value %s invalid, length must be exactly %d\n", 
                       p + 1, OWNER_SIZE - 2);
           else
           {
@@ -928,14 +900,11 @@ static int read_config(char *cfgFile)
              for (i = 0; i < strlen(OWNER); i++)
                 OWNER[i] = toupper(OWNER[i]);
 
-             if ((memcmp(OWNER, "XRF", 3) != 0) ||
-                 !isdigit(OWNER[3]) ||
-                 !isdigit(OWNER[4]) ||
-                 !isdigit(OWNER[5]))
-                traceit("Reflector names must be XRFzzz where zzz are digits from 1 thru 9\n");
+             if ((memcmp(OWNER, "XRF", 3) != 0)) 
+                printf("Reflector names must be XRFzzz where zzz are digits from 1 thru 9, and A-Z.\n");
              else
              {
-                traceit("OWNER=%s\n",OWNER);
+                printf("OWNER=%s\n",OWNER);
                 params ++;
              }
           }
@@ -948,7 +917,7 @@ static int read_config(char *cfgFile)
 
           /* no spaces after the equal sign */
           if (p[1] == ' ')
-             traceit("ADMIN: no spaces after the equal sign\n");
+             printf("ADMIN: no spaces after the equal sign\n");
           else
           {
              /* take up to 8 characters, throw away the rest */
@@ -956,7 +925,7 @@ static int read_config(char *cfgFile)
 
              /* valid length? */
              if ((strlen(p + 1) < 3) || (strlen(p + 1) > CALL_SIZE))
-                traceit("ADMIN value [%s] invalid\n", p + 1);
+                printf("ADMIN value [%s] invalid\n", p + 1);
              else
              {
                 memcpy(ADMIN, p + 1, strlen(p + 1));
@@ -965,7 +934,7 @@ static int read_config(char *cfgFile)
                 for (j = 0; j < CALL_SIZE; j++)
                    ADMIN[j] = toupper(ADMIN[j]);
 
-                traceit("ADMIN=[%s]\n",ADMIN);
+                printf("ADMIN=[%s]\n",ADMIN);
                 params ++;
              }
           }
@@ -978,12 +947,12 @@ static int read_config(char *cfgFile)
             *ptr = '\0';
 
          if (strlen(p + 1) < 1)
-            traceit("LISTEN_IP value %s invalid\n", p + 1);
+            printf("LISTEN_IP value %s invalid\n", p + 1);
          else
          {
             memset(LISTEN_IP, '\0', sizeof(LISTEN_IP));
             strncpy(LISTEN_IP, p + 1, IP_SIZE);
-            traceit("LISTEN_IP=%s\n",LISTEN_IP);
+            printf("LISTEN_IP=%s\n",LISTEN_IP);
             params ++;
          }
       }
@@ -991,28 +960,28 @@ static int read_config(char *cfgFile)
       if (strcmp(inbuf,"LISTEN_PORT") == 0)
       {
          LISTEN_PORT = atoi(p + 1);
-         traceit("LISTEN_PORT=%d\n",LISTEN_PORT);
+         printf("LISTEN_PORT=%d\n",LISTEN_PORT);
          params ++;
       }
       else
       if (strcmp(inbuf,"COMMAND_PORT") == 0)
       {
          COMMAND_PORT = atoi(p + 1);
-         traceit("COMMAND_PORT=%d\n",COMMAND_PORT);
+         printf("COMMAND_PORT=%d\n",COMMAND_PORT);
          params ++;
       }
       else
       if (strcmp(inbuf,"MAX_USERS") == 0)
       {
          MAX_USERS = atoi(p + 1);
-         traceit("MAX_USERS=%d\n",MAX_USERS);
+         printf("MAX_USERS=%d\n",MAX_USERS);
          params ++;
       }
       else
       if (strcmp(inbuf,"MAX_OTHER_USERS") == 0)
       {
          MAX_OTHER_USERS = atoi(p + 1); 
-         traceit("MAX_OTHER_USERS=%d\n",MAX_OTHER_USERS);
+         printf("MAX_OTHER_USERS=%d\n",MAX_OTHER_USERS);
          params ++; 
       }
       else
@@ -1020,7 +989,7 @@ static int read_config(char *cfgFile)
       {
          memset(STATUS_FILE, '\0', sizeof(STATUS_FILE));
          strncpy(STATUS_FILE, p + 1,FILENAME_MAX);
-         traceit("STATUS_FILE=%s\n",STATUS_FILE);
+         printf("STATUS_FILE=%s\n",STATUS_FILE);
          params ++;
       }
       else
@@ -1028,7 +997,7 @@ static int read_config(char *cfgFile)
       {
          memset(USERS, '\0', sizeof(USERS));
          strncpy(USERS, p + 1, FILENAME_MAX);
-         traceit("USERS=%s\n",USERS);
+         printf("USERS=%s\n",USERS);
          params ++;
       }
       else
@@ -1036,7 +1005,7 @@ static int read_config(char *cfgFile)
       {
          memset(BLOCKS, '\0', sizeof(BLOCKS));
          strncpy(BLOCKS, p + 1, FILENAME_MAX);
-         traceit("BLOCKS=%s\n",BLOCKS);
+         printf("BLOCKS=%s\n",BLOCKS);
          params ++;
       }
       else
@@ -1046,7 +1015,7 @@ static int read_config(char *cfgFile)
             QSO_DETAILS = true;
          else
             QSO_DETAILS = false;
-         traceit("QSO_DETAILS=%c\n", *(p + 1));
+         printf("QSO_DETAILS=%c\n", *(p + 1));
          params ++;
       }
    }
@@ -1054,13 +1023,13 @@ static int read_config(char *cfgFile)
 
    if (params != valid_params)
    {
-      traceit("Configuration file %s invalid\n",cfgFile);
+      printf("Configuration file %s invalid\n",cfgFile);
       return 1;
    }      
 
    if (COMMAND_PORT == LISTEN_PORT)
    {
-      traceit("Error: COMMAND_PORT must be different from LISTEN_PORT\n");
+      printf("Error: COMMAND_PORT must be different from LISTEN_PORT\n");
       return 1;
    }
    return 0;
@@ -1107,7 +1076,7 @@ static void check_heartbeat()
    {
       a_user_ptr = (struct a_user *)temp_pos->second;
 
-      traceit("call=%s %s, removing %s\n",
+      printf("call=%s %s, removing %s\n",
               a_user_ptr->call,
               (dropped == 't')?"timeout":"blocked",
               temp_pos->first.c_str());
@@ -1344,7 +1313,7 @@ static void print_links_file()
 
    statusfp = fopen(STATUS_FILE, "w");
    if (!statusfp)
-         traceit("Failed to create status file %s\n", STATUS_FILE);
+         printf("Failed to create status file %s\n", STATUS_FILE);
    else
    {
       setvbuf(statusfp, (char *)NULL, _IOLBF, 0);
@@ -1455,7 +1424,7 @@ static int ref_open()
    ref_sock = socket(PF_INET,SOCK_DGRAM,0);
    if (ref_sock == -1)
    {
-      traceit("Failed to create ref socket,errno=%d\n",errno);
+      printf("Failed to create ref socket,errno=%d\n",errno);
       return 1;
    }
    memset(&sin,0,sizeof(struct sockaddr_in));
@@ -1465,7 +1434,7 @@ static int ref_open()
 
    if (bind(ref_sock,(struct sockaddr *)&sin,sizeof(struct sockaddr_in)) != 0)
    {
-      traceit("Failed to bind ref socket on IP %s, port 20001, errno=%d\n",
+      printf("Failed to bind ref socket on IP %s, port 20001, errno=%d\n",
               LISTEN_IP, errno);
       close(ref_sock); ref_sock = -1;
       return 1;
@@ -1483,7 +1452,7 @@ static int srv_open()
    srv_sock = socket(PF_INET,SOCK_DGRAM,0);
    if (srv_sock == -1)
    {
-      traceit("Failed to create server socket,errno=%d\n",errno);
+      printf("Failed to create server socket,errno=%d\n",errno);
       return 1;
    }
    memset(&sin,0,sizeof(struct sockaddr_in));
@@ -1493,7 +1462,7 @@ static int srv_open()
 
    if (bind(srv_sock,(struct sockaddr *)&sin,sizeof(struct sockaddr_in)) != 0)
    {
-      traceit("Failed to bind server socket on IP %s, port %d, errno=%d\n",
+      printf("Failed to bind server socket on IP %s, port %d, errno=%d\n",
               LISTEN_IP, LISTEN_PORT,errno);
       close(srv_sock); srv_sock = -1;
       return 1;
@@ -1514,7 +1483,7 @@ static int cmd_open()
    cmd_sock = socket(PF_INET,SOCK_DGRAM,0);
    if (cmd_sock == -1)
    {
-      traceit("Failed to create cmd socket,errno=%d\n",errno);
+      printf("Failed to create cmd socket,errno=%d\n",errno);
       return 1;
    }
    memset(&sin,0,sizeof(struct sockaddr_in));
@@ -1524,7 +1493,7 @@ static int cmd_open()
 
    if (bind(cmd_sock,(struct sockaddr *)&sin,sizeof(struct sockaddr_in)) != 0)
    {
-      traceit("Failed to bind cmd socket on IP %s, port %d, errno=%d\n",
+      printf("Failed to bind cmd socket on IP %s, port %d, errno=%d\n",
               LISTEN_IP, COMMAND_PORT,errno);
       close(cmd_sock); cmd_sock = -1;
       return 1;
@@ -1542,7 +1511,7 @@ static void handle_cmd(char *buf)
    char cmd[4];
    char cmdprompt[3];
    unsigned short i;
-   char nak[7];
+   char nak[8];
    char const *timeoutmsg = "TIMEOUT\n";
    time_t timenow;
    double time_since_unlock = 0;
@@ -1578,7 +1547,7 @@ static void handle_cmd(char *buf)
        sizeof(struct sockaddr_in));
    }
 
-   traceit("Received command [%s] from [%s]\n", buf, inet_ntoa(fromCmd.sin_addr));
+   printf("Received command [%s] from [%s]\n", buf, inet_ntoa(fromCmd.sin_addr));
 
    if (strcmp(buf, "lk") == 0)  /* lock command processor */
    {
@@ -1617,7 +1586,7 @@ static void handle_cmd(char *buf)
    {
       rc = open_users(USERS);
       if (rc != 0)
-         traceit("Failed to reload %s\n", USERS);
+         printf("Failed to reload %s\n", USERS);
    }
    else
    {
@@ -1626,13 +1595,13 @@ static void handle_cmd(char *buf)
 
       if (!ptr_cmd || !ptr_call)
       {
-         traceit("Missing command parameters\n");
+         printf("Missing command parameters\n");
          strcpy(nak, "NAK   \n");
       }
       else
       if (strlen(ptr_cmd) > 3)
       {
-         traceit("Invalid command length\n");
+         printf("Invalid command length\n");
          strcpy(nak, "NAK   \n");
       }
       else
@@ -1659,15 +1628,15 @@ static void handle_cmd(char *buf)
                pos = blocks.find(call);
                if (pos != blocks.end())
                {
-                  traceit("Call %s already blocked\n", call);
+                  printf("Call %s already blocked\n", call);
                   strcpy(nak, "NAK   \n");
                }
                else
                if (blocks.insert(call).second)
-                  traceit("call %s is now blocked\n", call);
+                  printf("call %s is now blocked\n", call);
                else
                {
-                  traceit("Failed to block call %s\n",call);
+                  printf("Failed to block call %s\n",call);
                   strcpy(nak, "NAK   \n");
                }
             }
@@ -1675,10 +1644,10 @@ static void handle_cmd(char *buf)
             if (strcmp(cmd, "rb") == 0 && pwunlock)   /* rb  <CALLSIGN>     this will remove the block on the callsign */
             {
                if (blocks.erase(call) > 0)
-                  traceit("call %s is now unblocked\n", call);
+                  printf("call %s is now unblocked\n", call);
                else
                {
-                  traceit("Could not find blocked call %s\n", call);
+                  printf("Could not find blocked call %s\n", call);
                   strcpy(nak, "NAK   \n");
                }
             }
@@ -1712,7 +1681,7 @@ static void handle_cmd(char *buf)
             }
             else
             {
-               traceit("Unknown command or bad parameter\n", cmd);
+               printf("Unknown command or bad parameter\n");
                strcpy(nak, "NAK\n");
             }
          }
@@ -1802,7 +1771,7 @@ static void runit()
    if (ref_sock > max_nfds)
       max_nfds = ref_sock;
 
-   traceit("srv=%d, cmd=%d, ref=%d, MAX+1=%d\n", 
+   printf("srv=%d, cmd=%d, ref=%d, MAX+1=%d\n", 
             srv_sock,cmd_sock,ref_sock, max_nfds + 1);
 
    time(&HBinterStart);
@@ -1841,9 +1810,9 @@ static void runit()
                {
                   /***
                   if (an_rcd->recvlen == 56)
-                     traceit("Removing playback streamid %d,%d\n", an_rcd->data[0][12], an_rcd->data[0][13]);
+                     printf("Removing playback streamid %d,%d\n", an_rcd->data[0][12], an_rcd->data[0][13]);
                   else
-                     traceit("Removing playback streamid %d,%d\n", an_rcd->data[0][14], an_rcd->data[0][15]);
+                     printf("Removing playback streamid %d,%d\n", an_rcd->data[0][14], an_rcd->data[0][15]);
                   ***/
                   free(rcd_pos->second);
                   rcd_pos->second = NULL;
@@ -2367,13 +2336,13 @@ static void runit()
 
                inbound_ptr = (inbound *)inbound_pos->second;
                if (memcmp(inbound_ptr->call, "1NFO", 4) != 0)
-                  traceit("Call %s disconnected\n", inbound_ptr->call);
+                  printf("Call %s disconnected\n", inbound_ptr->call);
                free(inbound_pos->second);
                inbound_pos->second = NULL;
                inbound_list.erase(inbound_pos);
             }
             else
-              traceit("Disconnect received from %s-%s\n", an_ip, a_port);
+              printf("Disconnect received from %s-%s\n", an_ip, a_port);
          }
          else
          if ((recvlen3 == 5) &&
@@ -2389,7 +2358,7 @@ static void runit()
             inbound_pos = inbound_list.find(search_value);
             if (inbound_pos != inbound_list.end())
             {
-               traceit("Connect request accepted from %s-%s, sending login\n", an_ip, a_port);
+               printf("Connect request accepted from %s-%s, sending login\n", an_ip, a_port);
                /* send a login */
                refbuf[0] = 28;
                refbuf[1] = 192;
@@ -2414,7 +2383,7 @@ static void runit()
             else   /* They want to connect with our reflector */
             {
                if ((inbound_list.size() + 1) > MAX_OTHER_USERS)
-                  traceit("Inbound connection from %s-%s but over the MAX_OTHER_USERS limit of %d\n",
+                  printf("Inbound connection from %s-%s but over the MAX_OTHER_USERS limit of %ld\n",
                           an_ip, a_port, inbound_list.size());
                else
                   sendto(ref_sock,(char *)refbuf,5,0,
@@ -2433,9 +2402,9 @@ static void runit()
             if ((refbuf[4] == 79) &&
                 (refbuf[5] == 75) &&
                 (refbuf[6] == 82))
-               traceit("Login OK to %s\n", an_ip);
+               printf("Login OK to %s\n", an_ip);
             else
-               traceit("Login to %s failed\n", an_ip);
+               printf("Login to %s failed\n", an_ip);
          }
          else
          if ((recvlen3 == 28) &&  /* they want to login to our reflector */
@@ -2457,7 +2426,7 @@ static void runit()
 
             /***
             if (memcmp(a_call, "1NFO", 4) != 0)
-               traceit("Possible new connection: %s, ip=%s, DV=%.8s\n",
+               printf("Possible new connection: %s, ip=%s, DV=%.8s\n",
                        a_call, an_ip, refbuf + 20);
             ***/
 
@@ -2467,7 +2436,7 @@ static void runit()
                 (blocks.find(a_call2) != blocks.end()) ||     /* BLOCKED a_call */
                 (memcmp(a_call, OWNER, OWNER_SIZE) == 0))    /* a_call can NOT be our reflector */
             {
-               traceit("Invalid(or blocked) CALL=%s(%s),ip=%s,%s\n", a_call, a_call2, an_ip, a_port);
+               printf("Invalid(or blocked) CALL=%s(%s),ip=%s,%s\n", a_call, a_call2, an_ip, a_port);
 
                refbuf[0] = 8;
                refbuf[4] = 70;
@@ -2483,7 +2452,7 @@ static void runit()
             {
                if ((inbound_list.size() + 1) > MAX_OTHER_USERS)
                {
-                  traceit("Inbound connection from %s,%s but over the MAX_OTHER_USERS limit of %d\n",
+                  printf("Inbound connection from %s,%s but over the MAX_OTHER_USERS limit of %ld\n",
                           an_ip, a_port, inbound_list.size());
 
                   refbuf[0] = 8;
@@ -2518,7 +2487,7 @@ static void runit()
                      if (inbound_insert_pair.second)
                      {
                         if (memcmp(inbound_ptr->call, "1NFO", 4) != 0)
-                           traceit("new CALL=%s,DONGLE,ip=%s-%s, DV=%.8s, users=%d\n",
+                           printf("new CALL=%s,DONGLE,ip=%s-%s, DV=%.8s, users=%ld\n",
                                    inbound_ptr->call,an_ip, a_port, refbuf + 20, inbound_list.size() + a_user_list.size());
 
                         refbuf[0] = 8;
@@ -2533,7 +2502,7 @@ static void runit()
                      }
                      else
                      {
-                        traceit("failed to add CALL=%s,ip=%s,%s\n",inbound_ptr->call,an_ip,a_port);
+                        printf("failed to add CALL=%s,ip=%s,%s\n",inbound_ptr->call,an_ip,a_port);
                         free(inbound_ptr);
                         inbound_ptr = NULL;
 
@@ -2550,7 +2519,7 @@ static void runit()
                   }
                   else
                   {
-                     traceit("malloc() failed for call=%s,ip=%s,%s\n",a_call,an_ip,a_port);
+                     printf("malloc() failed for call=%s,ip=%s,%s\n",a_call,an_ip,a_port);
 
                      refbuf[0] = 8;
                      refbuf[4] = 70;
@@ -2606,7 +2575,7 @@ static void runit()
                   call_valid = regexec(&preg, a_call, 0, NULL, 0);
                   if (call_valid != REG_NOERROR) 
                   {
-                     traceit("User callsign [%s] not valid, audio from [%s] will not be transmitted\n", a_call, search_value);
+                     printf("User callsign [%s] not valid, audio from [%s] will not be transmitted\n", a_call, search_value);
                      found = false;
                   }
                   else
@@ -2614,7 +2583,7 @@ static void runit()
                      a_call[7] = ' ';
                      if (blocks.find(a_call) != blocks.end())
                      {
-                        traceit("User callsign [%s] blocked, audio from [%s] will not be transmitted\n", a_call, search_value);
+                        printf("User callsign [%s] blocked, audio from [%s] will not be transmitted\n", a_call, search_value);
                         found = false;
                      }
                   }
@@ -2640,7 +2609,7 @@ static void runit()
                         else
                            source_mod = refbuf[27];
                      }
-                     traceit("START user: streamID=%d,%d, my=%.8s, sfx=%.4s, ur=%.8s, rpt1=%.8s, rpt2=%.8s, %d bytes fromIP=%s, src=%.8s %c\n",
+                     printf("START user: streamID=%d,%d, my=%.8s, sfx=%.4s, ur=%.8s, rpt1=%.8s, rpt2=%.8s, %d bytes fromIP=%s, src=%.8s %c\n",
                            refbuf[14],refbuf[15],&refbuf[44],
                            &refbuf[52], &refbuf[36],
                            &refbuf[20], &refbuf[28],
@@ -2678,7 +2647,7 @@ static void runit()
                   if ((refbuf[16] & 0x40) != 0)
                   {
                      if (QSO_DETAILS)
-                        traceit("END user: streamID=%d,%d, %d bytes from IP=%s\n",
+                        printf("END user: streamID=%d,%d, %d bytes from IP=%s\n",
                                  refbuf[14],refbuf[15],recvlen3, an_ip);
                   }
 
@@ -2731,22 +2700,22 @@ static void runit()
                                        an_rcd->idx = 1;
                                        rcd_insert_pair = rcd_list.insert(pair<string, struct rcd *>(an_rcd_streamid, an_rcd));
                                        if (rcd_insert_pair.second)
-                                          ; // traceit("Started recording for user %.8s, streamid=%d,%d\n",
+                                          ; // printf("Started recording for user %.8s, streamid=%d,%d\n",
                                             //          refbuf + 44, refbuf[14],refbuf[15]);
                                        else
                                        {
-                                          traceit("failed to add user %.8s, streamid=%d,%d, for recording...\n",
+                                          printf("failed to add user %.8s, streamid=%d,%d, for recording...\n",
                                                   refbuf + 44, refbuf[14],refbuf[15]);
                                           free(an_rcd);
                                           an_rcd = NULL;
                                        }
                                     }
                                     else
-                                       traceit("Failed to allocate for recording on user %.8s, streamid=%d,%d\n",
+                                       printf("Failed to allocate for recording on user %.8s, streamid=%d,%d\n",
                                                refbuf + 44, refbuf[14],refbuf[15]);
                                  }
                                  else
-                                    traceit("Reached maximum concurrent users for recording\n");
+                                    printf("Reached maximum concurrent users for recording\n");
                               }
                            }
 
@@ -2851,22 +2820,22 @@ static void runit()
                                  an_rcd->idx = 1;
                                  rcd_insert_pair = rcd_list.insert(pair<string, struct rcd *>(an_rcd_streamid, an_rcd));
                                  if (rcd_insert_pair.second)
-                                    ; // traceit("Started recording for user %.8s, streamid=%d,%d\n",
+                                    ; // printf("Started recording for user %.8s, streamid=%d,%d\n",
                                       //         refbuf + 44, refbuf[14],refbuf[15]);
                                  else
                                  {
-                                    traceit("failed to add user %.8s, streamid=%d,%d, for recording...\n",
+                                    printf("failed to add user %.8s, streamid=%d,%d, for recording...\n",
                                             refbuf + 44, refbuf[14],refbuf[15]);
                                     free(an_rcd);
                                     an_rcd = NULL;
                                  }
                               }
                               else
-                                 traceit("Failed to allocate for recording on user %.8s, streamid=%d,%d\n",
+                                 printf("Failed to allocate for recording on user %.8s, streamid=%d,%d\n",
                                          refbuf + 44, refbuf[14],refbuf[15]);
                            }
                            else
-                              traceit("Reached maximum concurrent users for recording\n");
+                              printf("Reached maximum concurrent users for recording\n");
                         }
                      }
 
@@ -2960,7 +2929,7 @@ static void runit()
                      if (((refbuf[16] & 0x40) != 0) && !(an_rcd->locked))
                      {
                         /***
-                        traceit("Finished recording for user %.8s, streamid=%d,%d\n",
+                        printf("Finished recording for user %.8s, streamid=%d,%d\n",
                                  &(an_rcd->data[0][44]), refbuf[14], refbuf[15]);
                         ***/
 
@@ -2971,7 +2940,7 @@ static void runit()
                         rc = pthread_create(&playback_thread,&attr,playback,(void *)rcd_pos->second);
                         if (rc != 0)
                         {
-                           traceit("Failed to start the playback thread for streamid=%d,%d\n",
+                           printf("Failed to start the playback thread for streamid=%d,%d\n",
                                     refbuf[14], refbuf[15]);
                            free(rcd_pos->second);
                            rcd_pos->second = NULL;
@@ -3190,7 +3159,7 @@ static void runit()
 
                if (recvlen == (CALL_SIZE + 3)) 
                {
-                  // traceit("Possible new link/unlink request: %.*s\n", recvlen - 1, readBuffer);
+                  // printf("Possible new link/unlink request: %.*s\n", recvlen - 1, readBuffer);
 
                   /* remote repeater band */
                   if ((readBuffer[8] == 'A') || (readBuffer[8] == 'B') || (readBuffer[8] == 'C') ||
@@ -3199,7 +3168,7 @@ static void runit()
                      /* local reflector module */
                      if (readBuffer[9] == ' ')
                      {
-                        traceit("Call %s mod %c drops the link\n",
+                        printf("Call %s mod %c drops the link\n",
                                  a_call, readBuffer[8]);
 
                         /* this is the the remote repeater band */
@@ -3271,13 +3240,13 @@ static void runit()
                               All linked modules have been unlinked,
                               disconnect the repeater
                            */
-                           traceit("All linked modules from %s have been unlinked, disconnecting...\n",
+                           printf("All linked modules from %s have been unlinked, disconnecting...\n",
                                     a_call);
                            free(user_pos->second);
                            a_user_ptr = user_pos->second = NULL;
                            a_user_list.erase(user_pos);
                            // deleted = true;
-                           traceit("User %s ip=%s  removed\n", a_call, an_ip);
+                           printf("User %s ip=%s  removed\n", a_call, an_ip);
                         }
                      }
                      else
@@ -3354,7 +3323,7 @@ static void runit()
                            }
                              
                            /*** 
-                           traceit("Link established from %s mod %c ---> mod %c\n",
+                           printf("Link established from %s mod %c ---> mod %c\n",
                                    a_user_ptr->call, readBuffer[8], readBuffer[9]);
                            ***/
 
@@ -3375,7 +3344,7 @@ static void runit()
             else
             {
                allowed_to_connect = true;
-               // traceit("Possible new connection: %.*s ip=%s\n",  recvlen - 1, readBuffer, an_ip);
+               // printf("Possible new connection: %.*s ip=%s\n",  recvlen - 1, readBuffer, an_ip);
 
                do 
                {
@@ -3389,7 +3358,7 @@ static void runit()
                   /* reached capacity */ 
                   if (a_user_list.size() + 1 > MAX_USERS)
                   {
-                     // traceit("Reached MAX_USERS capacity\n");
+                     // printf("Reached MAX_USERS capacity\n");
                      allowed_to_connect = false;
                      break;
                   }
@@ -3398,7 +3367,7 @@ static void runit()
                   block_pos = blocks.find(a_call);
                   if (block_pos != blocks.end())
                   {
-                     // traceit("Callsign is blocked\n");
+                     // printf("Callsign is blocked\n");
                      allowed_to_connect = false;
                      break;
                   }
@@ -3425,7 +3394,7 @@ static void runit()
                   {
                      if ((call_valid != REG_NOERROR) && (memcmp(a_call, "XRF", 3) != 0))
                      {
-                        // traceit("Received link information from %s %s but call is not valid\n", a_call, an_ip);
+                        // printf("Received link information from %s %s but call is not valid\n", a_call, an_ip);
                         allowed_to_connect = false;
                      }
                      else
@@ -3523,12 +3492,12 @@ static void runit()
                      user_insert_pair = a_user_list.insert(pair<string, struct a_user *>(an_ip, a_user_ptr)); 
                      if (user_insert_pair.second) 
                      {
-                        traceit("new CALL=%s,REPEATER,ip=%s,users=%d, link from remote mod %c ---> local mod %c\n",
+                        printf("new CALL=%s,REPEATER,ip=%s,users=%ld, link from remote mod %c ---> local mod %c\n",
                                 a_call,
                                 an_ip,
                                 a_user_list.size() + inbound_list.size(),
                                 readBuffer[8], readBuffer[9]);
-                        
+
                         print_links_file();
 
                         if (!a_user_ptr->is_xrf)
@@ -3536,7 +3505,7 @@ static void runit()
                            memcpy(readBuffer + 10, "ACK", 4);
                            sendto(srv_sock, readBuffer, CALL_SIZE + 6,
                                   0,(struct sockaddr *)&(a_user_ptr->sin),
-                                  sizeof(struct sockaddr_in));                     
+                                  sizeof(struct sockaddr_in));
                         }
                         else
                         {
@@ -3554,7 +3523,7 @@ static void runit()
                      }
                      else
                      {
-                        traceit("Failed to add CALL=%s,ip=%s\n",a_call,an_ip);
+                        printf("Failed to add CALL=%s,ip=%s\n",a_call,an_ip);
 
                         /* If it was a link request, send back a NAK */
                         memcpy(readBuffer + 10, "NAK", 4);
@@ -3568,7 +3537,7 @@ static void runit()
                   }
                   else
                   {
-                     traceit("malloc() failed for call=%s,ip=%s\n",a_call, an_ip);
+                     printf("malloc() failed for call=%s,ip=%s\n",a_call, an_ip);
 
                      /* If it was a link request, send back a NAK */
                      if (recvlen == (CALL_SIZE + 3))
@@ -3630,7 +3599,7 @@ static void runit()
                   call_valid = regexec(&preg, a_call, 0, NULL, 0);
                   if (call_valid != REG_NOERROR) 
                   {
-                     traceit("User callsign [%s] not valid, audio from [%s] will not be transmitted\n", a_call, an_ip);
+                     printf("User callsign [%s] not valid, audio from [%s] will not be transmitted\n", a_call, an_ip);
                      found = false;
                   }
                   else
@@ -3638,7 +3607,7 @@ static void runit()
                      a_call[7] = ' ';
                      if (blocks.find(a_call) != blocks.end())
                      {
-                        traceit("User callsign [%s] blocked, audio from [%s] will not be transmitted\n", a_call, an_ip);
+                        printf("User callsign [%s] blocked, audio from [%s] will not be transmitted\n", a_call, an_ip);
                         found = false;
                      }
                   }
@@ -3779,7 +3748,7 @@ static void runit()
                      else
                      {
                         if (QSO_DETAILS)
-                           traceit("Invalid streamID: %d,%d, my=%.8s, rpt1=%.8s, rpt2=%.8s,  %d bytes fromIP=%s\n",
+                           printf("Invalid streamID: %d,%d, my=%.8s, rpt1=%.8s, rpt2=%.8s,  %d bytes fromIP=%s\n",
                                     readBuffer[12],readBuffer[13],
                                     &readBuffer[42], &readBuffer[18], &readBuffer[26], recvlen, an_ip);
                         found = false;
@@ -3794,7 +3763,7 @@ static void runit()
                if (recvlen == 56)
                {
                   if (QSO_DETAILS)
-                     traceit("START user: streamID=%d,%d, my=%.8s, sfx=%.4s, ur=%.8s, rpt1=%.8s, rpt2=%.8s, %d bytes fromIP=%s, src=%.8s %c\n",
+                     printf("START user: streamID=%d,%d, my=%.8s, sfx=%.4s, ur=%.8s, rpt1=%.8s, rpt2=%.8s, %d bytes fromIP=%s, src=%.8s %c\n",
                              readBuffer[12],readBuffer[13],&readBuffer[42], 
                              &readBuffer[50], &readBuffer[34],
                              &readBuffer[18], &readBuffer[26],
@@ -3843,22 +3812,22 @@ static void runit()
                               an_rcd->idx = 1;
                               rcd_insert_pair = rcd_list.insert(pair<string, struct rcd *>(an_rcd_streamid, an_rcd));
                               if (rcd_insert_pair.second)
-                                 ; // traceit("Started recording for user %.8s, streamid=%d,%d\n",
+                                 ; // printf("Started recording for user %.8s, streamid=%d,%d\n",
                                    //         readBuffer + 42, readBuffer[12], readBuffer[13]);
                               else
                               {
-                                 traceit("failed to add user %.8s, streamid=%d,%d, for recording...\n",
+                                 printf("failed to add user %.8s, streamid=%d,%d, for recording...\n",
                                          readBuffer + 42, readBuffer[12], readBuffer[13]);
                                  free(an_rcd);
                                  an_rcd = NULL;
                               }
                            }
                            else
-                              traceit("Failed to allocate for recording on user %.8s, streamid=%d,%d\n",
+                              printf("Failed to allocate for recording on user %.8s, streamid=%d,%d\n",
                                       readBuffer + 42, readBuffer[12], readBuffer[13]);
                         }
                         else
-                           traceit("Reached maximum concurrent users for recording\n");
+                           printf("Reached maximum concurrent users for recording\n");
                      }
                   }
                }
@@ -3867,7 +3836,7 @@ static void runit()
                   if ((readBuffer[14] & 0x40) != 0)
                   {
                      if (QSO_DETAILS)
-                        traceit("END user: streamID=%d,%d, %d bytes from IP=%s\n",
+                        printf("END user: streamID=%d,%d, %d bytes from IP=%s\n",
                                  readBuffer[12],readBuffer[13],recvlen, an_ip);
                   }
 
@@ -3884,7 +3853,7 @@ static void runit()
                      if (((readBuffer[14] & 0x40) != 0) && !(an_rcd->locked))
                      {
                         /***
-                        traceit("Finished recording for user %.8s, streamid=%d,%d\n",
+                        printf("Finished recording for user %.8s, streamid=%d,%d\n",
                                  &(an_rcd->data[0][42]), readBuffer[12], readBuffer[13]);
                         ***/
 
@@ -3895,7 +3864,7 @@ static void runit()
                         rc = pthread_create(&playback_thread,&attr,playback,(void *)rcd_pos->second);
                         if (rc != 0)
                         {
-                           traceit("Failed to start the playback thread for streamid=%d,%d\n",
+                           printf("Failed to start the playback thread for streamid=%d,%d\n",
                                     readBuffer[12], readBuffer[13]);
                            free(rcd_pos->second);
                            rcd_pos->second = NULL;
@@ -4147,13 +4116,13 @@ static void *playback(void *arg)
    act.sa_flags = SA_RESTART;
    if (sigaction(SIGTERM, &act, 0) != 0)
    {
-      traceit("sigaction-TERM failed, error=%d\n", errno);
+      printf("sigaction-TERM failed, error=%d\n", errno);
       keep_running = false;
       pthread_exit(NULL);
    }
    if (sigaction(SIGINT, &act, 0) != 0)
    {
-      traceit("sigaction-INT failed, error=%d\n", errno);
+      printf("sigaction-INT failed, error=%d\n", errno);
       keep_running = false;
       pthread_exit(NULL);
    }
@@ -4163,10 +4132,10 @@ static void *playback(void *arg)
 
    /***
    if (temp_rcd->recvlen == 56)
-      traceit("playback started for user=%.8s, streamid %d,%d\n", 
+      printf("playback started for user=%.8s, streamid %d,%d\n", 
             &(temp_rcd->data[0][42]), temp_rcd->data[0][12], temp_rcd->data[0][13]);
    else
-      traceit("playback started for user=%.8s, streamid %d,%d\n",
+      printf("playback started for user=%.8s, streamid %d,%d\n",
             &(temp_rcd->data[0][44]), temp_rcd->data[0][14], temp_rcd->data[0][15]);
    ***/
 
@@ -4196,10 +4165,10 @@ static void *playback(void *arg)
 
    /***
    if (temp_rcd->recvlen == 56)
-      traceit("Finished playback for user=%.8s, streamid %d,%d\n",
+      printf("Finished playback for user=%.8s, streamid %d,%d\n",
             &(temp_rcd->data[0][42]), temp_rcd->data[0][12], temp_rcd->data[0][13]);
    else
-      traceit("Finished playback for user=%.8s, streamid %d,%d\n",
+      printf("Finished playback for user=%.8s, streamid %d,%d\n",
             &(temp_rcd->data[0][44]), temp_rcd->data[0][14], temp_rcd->data[0][15]);
    ***/
 
@@ -4216,16 +4185,10 @@ int main(int argc, char **argv)
    inbound *inbound_ptr;
    short int i;
 
-   if (argc != 3)
+   if (argc != 2)
    {
-      printf("Usage:  dxrfd <configFile> <logFile>\n");
-      printf("Example: dxrfd dxrfd.cfg dxrfd.log\n");
-      return 1;
-   }
-
-   if (access(argv[2], F_OK) == 0)
-   {
-      printf("Log file %s exists, is dxrfd already running?, if not running, remove log file and restart\n", argv[2]);
+      printf("Usage:  dxrfd <configFile>\n");
+      printf("Example: dxrfd dxrfd.cfg\n");
       return 1;
    }
 
@@ -4234,35 +4197,23 @@ int main(int argc, char **argv)
         REG_EXTENDED | REG_NOSUB);
    if (rc != REG_NOERROR)
    {
-      traceit("The regular expression is NOT valid\n");
-      return 1;
-   }
-
-   /* Open log file */
-   logfp = fopen(argv[2], "a");
-   if (!logfp)
-   {
-      printf("Cant create log file %s, error=%d\n",
-              argv[2],errno);
+      printf("The regular expression is NOT valid\n");
       return 1;
    }
 
    tzset();
-
-   /* line buffering only */
-   setvbuf(logfp, (char *)NULL, _IOLBF, 0);
 
    act.sa_handler = sigCatch;
    sigemptyset(&act.sa_mask);
    act.sa_flags = SA_RESTART;
    if (sigaction(SIGTERM, &act, 0) != 0)
    {
-      traceit("sigaction-TERM failed, error=%d\n", errno);
+      printf("sigaction-TERM failed, error=%d\n", errno);
       return 1;
    }
    if (sigaction(SIGINT, &act, 0) != 0)
    {
-      traceit("sigaction-INT failed, error=%d\n", errno);
+      printf("sigaction-INT failed, error=%d\n", errno);
       return 1;
    }
 
@@ -4272,7 +4223,7 @@ int main(int argc, char **argv)
       rc = read_config(argv[1]);
       if (rc != 0)
       {
-         traceit("Failed to process config file %s\n", argv[1]);
+         printf("Failed to process config file %s\n", argv[1]);
          break;
       }
 
@@ -4280,14 +4231,14 @@ int main(int argc, char **argv)
       rc = open_users(USERS);
       if (rc != 0)
       {
-         traceit("Failed to open %s\n", USERS);
+         printf("Failed to open %s\n", USERS);
          break;
       }
 
       rc = open_blocks(BLOCKS);
       if (rc != 0)
       {
-         traceit("Failed to open %s\n", BLOCKS);
+         printf("Failed to open %s\n", BLOCKS);
          break;
       }
 
@@ -4295,7 +4246,7 @@ int main(int argc, char **argv)
       rc = srv_open();
       if (rc != 0)
       {
-         traceit("srv_open() failed\n");
+         printf("srv_open() failed\n");
          break;
       }
 
@@ -4303,14 +4254,14 @@ int main(int argc, char **argv)
       rc = cmd_open();
       if (rc != 0)
       {
-         traceit("cmd_open() failed\n");
+         printf("cmd_open() failed\n");
          break;
       }
 
       rc = ref_open();
       if (rc != 0)
       {
-         traceit("ref_open() failed\n");
+         printf("ref_open() failed\n");
          break;
       }
   
@@ -4323,11 +4274,11 @@ int main(int argc, char **argv)
          memset(temp_r[i].hdr, 0, 58);
       }
 
-      traceit("dxrfd %s initialized...entering processing loop\n", VERSION);
+      printf("dxrfd %s initialized...entering processing loop\n", VERSION);
 
       print_links_file();
       runit();
-      traceit("Leaving processing loop...\n");
+      printf("Leaving processing loop...\n");
 
    } while (false);
 
@@ -4362,10 +4313,9 @@ int main(int argc, char **argv)
    if (statusfp)
       fclose(statusfp);
    else
-      traceit("Failed to empty out status file %s\n", STATUS_FILE);
+      printf("Failed to empty out status file %s\n", STATUS_FILE);
 
-   traceit("dxrfd exiting\n");
-   fclose(logfp);
+   printf("dxrfd exiting\n");
  
    return rc;
 }
