@@ -1,12 +1,10 @@
 [Unit]
-Description=dxrfd Service
+Description=dxrfd XRF Reflector
 After=syslog.target network.target
 
 [Service]
-Type=forking
-ExecStart=/usr/local/sbin/xrfd.service start
-ExecStop=/usr/local/sbin/xrfd.service stop
-ExecReload=/usr/local/sbin/xrfd.service restart
+Type=simple
+ExecStart=/usr/local/sbin/dxrfd /usr/local/etc/dxrfd/dxrfd.cfg
 
 [Install]
 WantedBy=multi-user.target
