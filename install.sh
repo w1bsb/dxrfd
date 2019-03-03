@@ -12,7 +12,7 @@ fi
 		mkdir -p /usr/local/etc/dxrfd/
 		echo -e "Installing dxrfd and xrfd.service to /usr/local/sbin..."
 		cp -f dxrfd /usr/local/sbin/
-		cp -f xrfd.service /usr/local/sbin/
+		cp -f dxrfd.service /usr/local/sbin/
 		echo -e "Done."
 		echo -e "Installing dxrfd.cfg and xrfs.txt to /usr/local/etc/dxrfd..."
 		cp -u dxrfd.cfg /usr/local/etc/dxrfd

@@ -4179,6 +4179,7 @@ static void *playback(void *arg)
 
 int main(int argc, char **argv)
 {
+   setvbuf(stdout, NULL, _IOLBF, 0);
    int rc = 0;
    struct sigaction act;
    inbound_type::iterator inbound_pos; 
